@@ -8,13 +8,18 @@ import AddAPhotoIcon from '@material-ui/icons/AddAPhotoTwoTone';
 import LandscapeIcon from '@material-ui/icons/LandscapeOutlined';
 import ClearIcon from '@material-ui/icons/Clear';
 import SaveIcon from '@material-ui/icons/SaveTwoTone';
+
 import Context from '../../context';
+import { CREATE_PIN_MUTATION } from '../../graphql/mutations';
+import { useClient } from '../../client'; //custom hook
 
 const CreatePin = ({ classes }) => {
+  const client = useClient();
+  const { dispatch, state } = useContext(Context);
   const [title, setTitle] = useState('');
   const [image, setImage] = useState('');
   const [content, setContent] = useState('');
-  const { dispatch } = useContext(Context);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleDeleteDraft = () => {
     setTitle('');
@@ -36,9 +41,28 @@ const CreatePin = ({ classes }) => {
   };
 
   const handleSubmit = async event => {
-    event.preventDefault();
-    const imageUrl = await handleImageUpload();
-    console.log({ title, image, content, imageUrl });
+    try {
+      event.preventDefault();
+      setSubmitting(true);
+      const imageUrl = await handleImageUpload();
+      const { latitude, longitude } = state.draft;
+      const variables = {
+        image: imageUrl,
+        title,
+        content,
+        latitude,
+        longitude,
+      };
+      const { createPin } = await client.request(
+        CREATE_PIN_MUTATION,
+        variables
+      );
+      console.log('Pin Created: ', { createPin });
+      handleDeleteDraft();
+    } catch (error) {
+      setSubmitting(false);
+      console.error('Error creating pin', error);
+    }
   };
 
   return (
@@ -97,7 +121,7 @@ const CreatePin = ({ classes }) => {
           className={classes.button}
           variant="contained"
           color="secondary"
-          disabled={!title.trim() || !content.trim() || !image}
+          disabled={!title.trim() || !content.trim() || !image || submitting}
           onClick={handleSubmit}
         >
           <SaveIcon className={classes.leftIcon} />
